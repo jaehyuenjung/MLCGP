@@ -6,14 +6,22 @@ from matplotlib import font_manager, rc
 from sklearn.model_selection import train_test_split;
 from sklearn.preprocessing import PolynomialFeatures;
 from sklearn.linear_model import LinearRegression;
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.linear_model import Lasso;
 from sklearn.metrics import mean_absolute_error;
 
-DATA_DIR = './data/stock_ko';
+DATA_DIR = './regression/data/stock_ko';
 FILE_PATH = 'samsung_20000101-20210926.csv';
 
 def format_date_to_int(date):
     year, month, day = date.split('/');
     return int('{}{}{}'.format(year, month, day));
+
+def cal_mae(model, test_input, test_target):
+    test_prediction = model.predict(test_input);
+
+    mae = mean_absolute_error(test_target, test_prediction);
+    print(mae);
 
 def draw_linear_regression(model, train_input, df, limit = 0):
     x = df['일자'].drop(0, axis=0, inplace=False);
@@ -63,7 +71,24 @@ def fit_test_poly(model, train_input, train_target, test_input, test_target, sta
     plt.ylabel('R^2');
     plt.show();
 
-   
+def fit_test_scaled(train_input, train_target, test_input, test_target):
+    train_score = [];
+    test_score = [];
+    alpha_list = [0.001, 0.01, 0.1, 1, 10, 100];
+
+    for alpha in alpha_list:
+        lasso = Lasso(alpha=alpha);
+        lasso.fit(train_input, train_target);
+
+        train_score.append(lasso.score(train_input, train_target));
+        test_score.append(lasso.score(test_input, test_target));
+    
+    plt.plot(np.log10(alpha_list), train_score);
+    plt.plot(np.log10(alpha_list), test_score);
+    plt.xlabel(r'log(alpha)');
+    plt.ylabel('R^2');
+    plt.show();
+
 df = pd.read_csv('{}/{}'.format(DATA_DIR, FILE_PATH));
 
 stock_input = df.drop('시가총액', axis=1 ,inplace=False);
@@ -92,19 +117,28 @@ lr.fit(train_input, train_target);
 # print(lr.score(train_input, train_target));
 # print(lr.score(test_input, test_target));
 
-# test_prediction = lr.predict(test_input);
+# draw_linear_regression(lr, stock_input.to_numpy(), df);
 
-# mae = mean_absolute_error(test_target, test_prediction);
-# print(mae);
+# cal_mae(lr, test_input, test_target);
 
-"## 과대 적합을 해결하기 위해 특성값을 추가"
+"""## 다음날 시가총액 예측"""
+sample_input = df.iloc[0].drop('시가총액', axis= 0, inplace=False);
+sample_input['일자'] = 20210927;
+
+sample_input = sample_input.to_numpy();
+sample_input = sample_input.reshape(1,-1);
+
+# print(lr.predict(sample_input));
+
+"## 성능을 올리기 위해 특성값을 추가"
 poly = PolynomialFeatures(include_bias=False);
 poly.fit(train_input);
 train_poly = poly.transform(train_input);
 test_poly = poly.transform(test_input);
+# print(train_input.shape);
 # print(train_poly.shape);
 
-# poly.get_feature_names();
+# print(poly.get_feature_names());
 
 """## 다중 회귀 모델 part2"""
 lr = LinearRegression();
@@ -112,29 +146,52 @@ lr.fit(train_poly, train_target);
 # print(lr.score(train_poly, train_target));
 # print(lr.score(test_poly, test_target));
 
-# test_prediction = lr.predict(test_poly);
+# poly.fit(stock_input);
+# stock_poly = poly.transform(stock_input);
+# draw_linear_regression(lr, stock_poly, df, limit=500);
 
-# mae = mean_absolute_error(test_target, test_prediction);
-# print(mae);
-
-poly.fit(stock_input);
-stock_poly = poly.transform(stock_input);
-draw_linear_regression(lr, stock_poly, df, 5);
-
-"""## 과대 적합을 해결할 적절한 degree 값을 찾기 위해 테스트"""
-# fit_test_poly(lr, train_input, train_target, test_input, test_target, 2, 4);
-
+# cal_mae(lr, test_poly, test_target);
 
 """## 다음날 시가총액 예측"""
-# sample_input = df.iloc[0].drop('시가총액', axis= 0, inplace=False);
-# sample_input['일자'] = 20210927;
-
-# sample_input = sample_input.to_numpy();
-# sample_input = sample_input.reshape(1,-1);
-
-# poly = PolynomialFeatures(include_bias=False);
-# poly.fit(sample_input);
-# sample_poly = poly.transform(sample_input);
+sample_poly = poly.transform(sample_input);
 
 # print(lr.predict(sample_poly));
+
+"""## 적절한 degree 값을 찾기 위해 테스트"""
+# fit_test_poly(lr, train_input, train_target, test_input, test_target, 1, 4);
+
+"""## 과대 적합된 시점인 degree=3으로 설정"""
+poly = PolynomialFeatures(include_bias=False, degree=3);
+poly.fit(train_input);
+train_poly = poly.transform(train_input);
+test_poly = poly.transform(test_input);
+
+"""## 규제를 하기 위한 스케일링 설정"""
+mms = MinMaxScaler();
+mms.fit(train_poly);
+train_scaled = mms.transform(train_poly);
+test_scaled = mms.transform(test_poly);
+
+"""## 다중 회귀 모델 part 3"""
+lasso = Lasso();
+lasso.fit(train_scaled, train_target);
+# print(lasso.score(train_scaled, train_target));
+# print(lasso.score(test_scaled, test_target));
+
+# poly.fit(stock_input);
+# stock_poly = poly.transform(stock_input);
+# stock_scaled = mms.transform(stock_poly);
+# draw_linear_regression(lasso, stock_scaled, df, limit=500);
+
+# cal_mae(lasso, test_scaled, test_target);
+
+"""## 다음날 시가총액 예측"""
+sample_poly = poly.transform(sample_input);
+sample_scaled = mms.transform(sample_poly);
+
+# print(lasso.predict(sample_scaled));
+
+"""## 적절한 alpha 값을 찾기 위해 테스트"""
+# fit_test_scaled(train_scaled, train_target, test_scaled, test_target);
+
 
