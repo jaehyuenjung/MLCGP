@@ -8,6 +8,7 @@ from sklearn.preprocessing import PolynomialFeatures;
 from sklearn.linear_model import LinearRegression;
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import Lasso;
+from sklearn.linear_model import Ridge;
 from sklearn.metrics import mean_absolute_error;
 
 DATA_DIR = './regression/data/stock_ko';
@@ -90,6 +91,7 @@ def fit_test_scaled(train_input, train_target, test_input, test_target):
     plt.show();
 
 df = pd.read_csv('{}/{}'.format(DATA_DIR, FILE_PATH));
+# print(df.info());
 
 stock_input = df.drop('시가총액', axis=1 ,inplace=False);
 stock_target = df['시가총액'];
@@ -117,7 +119,7 @@ lr.fit(train_input, train_target);
 # print(lr.score(train_input, train_target));
 # print(lr.score(test_input, test_target));
 
-# draw_linear_regression(lr, stock_input.to_numpy(), df);
+# draw_linear_regression(lr, stock_input.to_numpy(), df, limit=200);
 
 # cal_mae(lr, test_input, test_target);
 
@@ -148,7 +150,7 @@ lr.fit(train_poly, train_target);
 
 # poly.fit(stock_input);
 # stock_poly = poly.transform(stock_input);
-# draw_linear_regression(lr, stock_poly, df, limit=500);
+# draw_linear_regression(lr, stock_poly, df, limit=200);
 
 # cal_mae(lr, test_poly, test_target);
 
@@ -181,7 +183,7 @@ lasso.fit(train_scaled, train_target);
 # poly.fit(stock_input);
 # stock_poly = poly.transform(stock_input);
 # stock_scaled = mms.transform(stock_poly);
-# draw_linear_regression(lasso, stock_scaled, df, limit=500);
+# draw_linear_regression(lasso, stock_scaled, df, limit=200);
 
 # cal_mae(lasso, test_scaled, test_target);
 
@@ -194,4 +196,24 @@ sample_scaled = mms.transform(sample_poly);
 """## 적절한 alpha 값을 찾기 위해 테스트"""
 # fit_test_scaled(train_scaled, train_target, test_scaled, test_target);
 
+"""## 다중 회귀 모델 part 4"""
+ridge = Ridge()  # alpha: 규제 파라미터
+ridge.fit(train_scaled, train_target);
+# print(ridge.score(train_scaled, train_target));
+# print(ridge.score(test_scaled, test_target));
 
+# poly.fit(stock_input);
+# stock_poly = poly.transform(stock_input);
+# stock_scaled = mms.transform(stock_poly);
+# draw_linear_regression(ridge, stock_scaled, df, limit=200);
+
+# cal_mae(ridge, test_scaled, test_target);
+
+"""## 다음날 시가총액 예측"""
+sample_poly = poly.transform(sample_input);
+sample_scaled = mms.transform(sample_poly);
+
+# print(ridge.predict(sample_scaled));
+
+"""## 적절한 alpha 값을 찾기 위해 테스트"""
+# fit_test_scaled(train_scaled, train_target, test_scaled, test_target);
