@@ -5,3 +5,4 @@
 ## Project List
 
 -   [x] [회귀(Regression)](https://github.com/jaehyuenjung/MLCGP/commit/93f4ca5cb3484bf6fa2e5045bf505437f26df83a)
+-   [ ] [분류(Classification)]()
