@@ -148,9 +148,9 @@ lr.fit(train_poly, train_target);
 # print(lr.score(train_poly, train_target));
 # print(lr.score(test_poly, test_target));
 
-# poly.fit(stock_input);
-# stock_poly = poly.transform(stock_input);
-# draw_linear_regression(lr, stock_poly, df, limit=200);
+poly.fit(stock_input);
+stock_poly = poly.transform(stock_input);
+draw_linear_regression(lr, stock_poly, df, limit=200);
 
 # cal_mae(lr, test_poly, test_target);
 
