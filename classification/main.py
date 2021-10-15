@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier, export_graphviz
 
@@ -84,6 +85,27 @@ def fit_test_regulation(train_input, train_target, test_input, test_target, star
     plt.xlabel('(max_depth, min_samples_leaf)');
     plt.ylabel('accuracy');
     plt.xticks(rotation=45)
+    plt.show();
+
+def fit_test_poly(model, train_input, train_target, test_input, test_target, start = 3, stop = 4, step = 1):
+    train_score = [];
+    test_score = [];
+
+    for i in range(start,stop, step):
+        poly = PolynomialFeatures(degree = i, include_bias=False);
+        poly.fit(train_input);
+        train_poly = poly.transform(train_input);
+        test_poly = poly.transform(test_input);
+
+        model.fit(train_poly, train_target);
+
+        train_score.append(model.score(train_poly, train_target));
+        test_score.append(model.score(test_poly, test_target));
+
+    plt.plot(np.arange(start, stop, step), train_score);
+    plt.plot(np.arange(start, stop, step), test_score);
+    plt.xlabel('degree');
+    plt.ylabel('R^2');
     plt.show();
 
 data_frame = pd.read_csv('{}/{}'.format(DATA_IN_DIR, FILE_PATH), header=0, sep=',')
@@ -216,18 +238,34 @@ classifier.fit(train_input, train_target);
 
 # graph.write_png('{}/dicisionTree2.png'.format(DATA_OUT_DIR))
 
-"""## SVC 다중 모델"""
+"""## SVC 다중 모델 part 1"""
 train_scaled, test_scaled = format_data_to_scaling(train_input, test_input)
 
 svc = SVC(kernel='linear');
-svc.fit(train_input, train_target);
+svc.fit(train_scaled, train_target);
 
-print(svc.score(train_scaled, train_target));
-print(svc.score(test_scaled, test_target));
+# print(svc.score(train_scaled, train_target));
+# print(svc.score(test_scaled, test_target));
+
+"""## 적절한 degree 값을 찾기 위해 테스트"""
+# fit_test_poly(svc, train_input, train_target, test_input, test_target, 1, 4);
+
+"""## SVC 다중 모델 part 2"""
+poly = PolynomialFeatures(include_bias=False)
+poly.fit(train_scaled)
+
+train_poly = poly.transform(train_scaled)
+test_poly = poly.transform(test_scaled)
+
+svc = SVC(kernel='linear');
+svc.fit(train_poly, train_target);
+
+# print(svc.score(train_poly, train_target));
+# print(svc.score(test_poly, test_target));
 
 """## 소프트맥스 회귀 모델"""
-softmax= LogisticRegression(multi_class='multinomial',  solver='lbfgs', max_iter=100000, random_state=SEED)
+# softmax= LogisticRegression(multi_class='multinomial',  solver='lbfgs', max_iter=100000, random_state=SEED)
 
-softmax.fit(train_input,train_target)
+# softmax.fit(train_input,train_target)
 # print(softmax.score(train_input, train_target))
 # print(softmax.score(test_input, test_target))
