@@ -217,11 +217,13 @@ classifier.fit(train_input, train_target);
 # graph.write_png('{}/dicisionTree2.png'.format(DATA_OUT_DIR))
 
 """## SVC 다중 모델"""
-# svc = SVC(kernel='linear');
-# svc.fit(train_input, train_target);
+train_scaled, test_scaled = format_data_to_scaling(train_input, test_input)
 
-# print(svc.score(train_input, train_target));
-# print(svc.score(test_input, test_target));
+svc = SVC(kernel='linear');
+svc.fit(train_input, train_target);
+
+print(svc.score(train_scaled, train_target));
+print(svc.score(test_scaled, test_target));
 
 """## 소프트맥스 회귀 모델"""
 softmax= LogisticRegression(multi_class='multinomial',  solver='lbfgs', max_iter=100000, random_state=SEED)
