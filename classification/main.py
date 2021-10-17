@@ -1,5 +1,4 @@
 import pydot
-import mglearn
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,6 +11,7 @@ from sklearn.tree import DecisionTreeClassifier, export_graphviz
 
 DATA_DIR = './classification';
 DATA_IN_DIR = './classification/data/in';
+DATA_OUT_DIR = './classification/data/out';
 FILE_PATH = 'fish/Fish.csv';
 
 data_colors = ['blue', 'red']
@@ -264,7 +264,7 @@ svc.fit(train_poly, train_target);
 # print(svc.score(test_poly, test_target));
 
 """## 소프트맥스 회귀 모델"""
-# softmax= LogisticRegression(multi_class='multinomial',  solver='lbfgs', max_iter=100000, random_state=SEED)
+# softmax= LogisticRegression(multi_class='multinomial',  solver='lbfgs', max_iter=500, random_state=SEED)
 
 # softmax.fit(train_input,train_target)
 # print(softmax.score(train_input, train_target))
