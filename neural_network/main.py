@@ -50,7 +50,7 @@ def fit_test_classification(model, train_input, train_target, valid_input, valid
     plt.show()
 
 def fit_test_regression(model, train_input, train_target, valid_input, valid_target, test_input, test_target):
-    model.compile(loss="mae", optimizer="adam", metrics=["accuracy"])
+    model.compile(loss="mae", optimizer="adam")
 
     history = model.fit(train_input, train_target, epochs=1000, validation_data=(valid_input, valid_target),
     callbacks=[early_stopping_cb])
@@ -143,19 +143,19 @@ valid_scaled = valid_scaled.reshape(valid_scaled.shape[0], valid_scaled.shape[1]
 test_scaled = test_scaled.reshape(test_scaled.shape[0], test_scaled.shape[1], 1)
 
 """RNN 모델 part 1"""
-rnn = Sequential([
-    Conv1D(filters=10, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[10,1]),
-    LSTM(units=50,  activation='relu', return_sequences=True),
-    LSTM(units=100,  activation='relu', return_sequences=False),
-    Dense(100),
-    Dense(10),
-    Dense(1)
-])
+# rnn = Sequential([
+#     Conv1D(filters=10, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[10,1]),
+#     LSTM(units=50,  activation='relu', return_sequences=True),
+#     LSTM(units=100,  activation='relu', return_sequences=False),
+#     Dense(100),
+#     Dense(10),
+#     Dense(1)
+# ])
 
-fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
+# fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
 
-sample_scaled = sample_scaled.reshape(1, 10, 1)
-print(rnn.predict(sample_scaled))
+# sample_scaled = sample_scaled.reshape(1, 10, 1)
+# print(rnn.predict(sample_scaled))
 
 """RNN 모델 part 2"""
 # rnn = Sequential([
@@ -164,6 +164,21 @@ print(rnn.predict(sample_scaled))
 #     Dense(100),
 #     Dense(10),
 #     Dense(1)
+# ])
+
+# fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
+
+# sample_scaled = sample_scaled.reshape(1, 10, 1)
+# print(rnn.predict(sample_scaled))
+
+"""RNN 모델 part 3"""
+# rnn = Sequential([
+    # Conv1D(filters=10, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[10,1]),
+    # GRU(units=50,  activation='relu', return_sequences=True),
+    # GRU(units=100,  activation='relu', return_sequences=False),
+    # Dense(100),
+    # Dense(10),
+    # Dense(1)
 # ])
 
 # fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
@@ -220,38 +235,58 @@ tf.random.set_seed(SEED)
 DefaultConv1D = partial(Conv1D, kernel_size=2, activation='relu', kernel_initializer='he_uniform', padding='same')
 early_stopping_cb = EarlyStopping(patience=10, restore_best_weights=True)
 
-"""## DNN 모델 part 1
-    [0.6678850054740906, 0.75789475440979]
-    [0.809310257434845, 0.675000011920929]
-"""
+"""## DNN 모델 part 1"""
 # dnn = Sequential([
-#     Dense(16, activation="tanh", input_shape=[6]),
+#     Dense(300, activation="tanh", input_shape=[6]),
 #     Dense(7, activation="softmax")
 # ])
 
 # fit_test_classification(dnn, train_input, train_target, valid_input, valid_target, test_input, test_target)
 
-"""## DNN 모델 part 2
-    [0.43109723925590515, 0.8526315689086914]
-    [0.5913206934928894, 0.7749999761581421]
-"""
+"""## DNN 모델 part 2"""
 # dnn = Sequential([
-#     Dense(16, activation="tanh", input_shape=[6]),
-#     Dense(32, activation="tanh"),
+#     Dense(120, activation="tanh", input_shape=[6]),
+#     Dense(60, activation="tanh"),
+#     Dense(60, activation="tanh"),
+#     Dense(60, activation="tanh"),
 #     Dense(7, activation="softmax")
 # ])
 
 # fit_test_classification(dnn, train_input, train_target, valid_input, valid_target, test_input, test_target)
 
-"""## DNN 모델 part 3
-    [0.35108378529548645, 0.8947368264198303]
-    [0.5018050074577332, 0.824999988079071]
-"""
+"""## DNN 모델 part 3"""
 # dnn = Sequential([
-#     Dense(16, activation="tanh", input_shape=[6]),
-#     Dense(32, activation="tanh"),
-#     Dense(16, activation="tanh"),
-#     Dense(8, activation="tanh"),
+#     Dense(256, activation="tanh", input_shape=[6]),
+#     Dense(256, activation="tanh"),
+#     Dropout(0.2),
+#     Dense(128, activation="tanh"),
+#     Dropout(0.2),
+#     Dense(64, activation="tanh"),
+#     Dropout(0.2),
+#     Dense(64, activation="tanh"),
+#     Dense(7, activation="softmax")
+# ])
+
+# fit_test_classification(dnn, train_input, train_target, valid_input, valid_target, test_input, test_target)
+
+"""## DNN 모델 part 4"""
+# dnn = Sequential([
+#     Dense(512, activation="tanh", input_shape=[6]),
+#     Dense(7, activation="softmax")
+# ])
+
+# fit_test_classification(dnn, train_input, train_target, valid_input, valid_target, test_input, test_target)
+
+"""## DNN 모델 part 5"""
+# dnn = Sequential([
+#     Dense(60, activation="tanh", input_shape=[6]),
+#     Dropout(0.2),
+#     Dense(30, activation="tanh"),
+#     Dropout(0.3),
+#     Dense(30, activation="tanh"),
+#     Dense(30, activation="tanh"),
+#     Dense(30, activation="tanh"),
+#     Dense(30, activation="tanh"),
 #     Dense(7, activation="softmax")
 # ])
 
@@ -360,13 +395,3 @@ test_input = test_numpy.reshape(test_numpy.shape[0], test_numpy.shape[1], 1)
 # ])
 
 # fit_test_classification(rnn, train_input, train_target, valid_input, valid_target, test_input, test_target)
-
-
-
-
-
-
-
-
-
-
