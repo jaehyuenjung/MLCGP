@@ -28,7 +28,7 @@ KBS = 2
 SBS = 3
 KYUNGHYANG_NEWSPAPER = 4
 STOCK_NAME = '삼성전자'
-SLEEP_SEC = 0.3;
+SLEEP_SEC = 0.5;
 
 """## 초성 리스트. 00 ~ 18"""
 CHOSUNG_LIST = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
@@ -159,74 +159,83 @@ def news_section_crawling(url, press_index):
     
     soup = parse_url(url, {'encoding': 'utf-8'})
     
-    if press_index == YONHAP_NEWS:
-        try:
-            content_of_article = soup.find('article', {'class':'story-news article'}).find_all('p')
-        except:
-            content_of_article = soup.find('div', {'class':'article-txt'}).find_all('p')
-        
-        string_list = []
-        
-        for item in content_of_article:
-            sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+    try: 
+        if press_index == YONHAP_NEWS:
+            try:
+                content_of_article = soup.find('article', {'class':'story-news article'}).find_all('p')
+            except:
+                try:
+                    content_of_article = soup.find('div', {'class':'article-txt'}).find_all('p')
+                except:
+                    try:
+                        return  p.sub(' ', soup.find('div', {'id':'articleBody'}).text).strip()
+                    except:
+                        return  p.sub(' ', soup.find('div', {'class':'end_body_wrp'}).text).strip()
+                        
+            string_list = []
             
-            string_list.append(sent)
+            for item in content_of_article:
+                sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+                
+                string_list.append(sent)
 
-        return p.sub(' ', ' '.join(string_list)).strip()
-    
-    elif press_index == CHOSUN_ILBO:
-        new_url = soup.find('link', {'rel':'amphtml'})['href']
+            return p.sub(' ', ' '.join(string_list)).strip()
         
-        soup = parse_url(new_url, {'encoding': 'utf-8'})
-        content_of_article = soup.find('section', {'class':'article-body'}).find_all('p')
-        
-        string_list = []
-        
-        for item in content_of_article:
-            sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+        elif press_index == CHOSUN_ILBO:
+            new_url = soup.find('link', {'rel':'amphtml'})['href']
             
-            string_list.append(sent)
+            soup = parse_url(new_url, {'encoding': 'utf-8'})
+            content_of_article = soup.find('section', {'class':'article-body'}).find_all('p')
+            
+            string_list = []
+            
+            for item in content_of_article:
+                sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+                
+                string_list.append(sent)
 
-        return p.sub(' ', ' '.join(string_list)).strip()
-    
-    elif press_index == KBS:
-        content_of_article = soup.select('div.detail-body')
+            return p.sub(' ', ' '.join(string_list)).strip()
         
-        string_list = []
+        elif press_index == KBS:
+            content_of_article = soup.select('div.detail-body')
+            
+            string_list = []
+            
+            for item in content_of_article:
+                sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+                
+                string_list.append(sent)
+                
+            return p.sub(' ', ' '.join(string_list)).strip()
         
-        for item in content_of_article:
-            sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+        elif press_index == SBS:
+            content_of_article = soup.select('div.text_area')
             
-            string_list.append(sent)
+            string_list = []
             
-        return p.sub(' ', ' '.join(string_list)).strip()
-    
-    elif press_index == SBS:
-        content_of_article = soup.select('div.text_area')
-        
-        string_list = []
-        
-        for item in content_of_article:
-            sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
-            
-            string_list.append(sent)
-            
-        return p.sub(' ', ' '.join(string_list)).strip()
+            for item in content_of_article:
+                sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+                
+                string_list.append(sent)
+                
+            return p.sub(' ', ' '.join(string_list)).strip()
 
-    elif press_index == KYUNGHYANG_NEWSPAPER:
-        content_of_article = soup.select('p.content_text') 
-        string_list = []
-        
-        for item in content_of_article:
-            sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+        elif press_index == KYUNGHYANG_NEWSPAPER:
+            content_of_article = soup.select('p.content_text') 
+            string_list = []
             
-            """## 주석 제거"""
-            sent = re.sub(r"SUB_TITLE_START", "", sent)
-            sent = re.sub(r"SUB_TITLE_END", "", sent)
-            
-            string_list.append(sent)
+            for item in content_of_article:
+                sent = p.sub(' ', ' '.join(list(map(str, item.find_all(text=True)))))
+                
+                """## 주석 제거"""
+                sent = re.sub(r"SUB_TITLE_START", "", sent)
+                sent = re.sub(r"SUB_TITLE_END", "", sent)
+                
+                string_list.append(sent)
 
-        return p.sub(' ', ' '.join(string_list)).strip()
+            return p.sub(' ', ' '.join(string_list)).strip()
+    except:
+        return None
 
 
 def cur_page_crawling(url, press):
@@ -258,8 +267,9 @@ def cur_page_crawling(url, press):
         
         print(news_title)
         
-        news_data = {'date': news_date, 'url': news_url, 'press': news_press,  'title': news_title, 'section': news_section}
-        cur_news_data_list.append(news_data)
+        if news_section:
+            news_data = {'date': news_date, 'url': news_url, 'press': news_press,  'title': news_title, 'section': news_section}
+            cur_news_data_list.append(news_data)
         
     return cur_news_data_list
         
@@ -267,21 +277,22 @@ def set_news_collection_crawling(browser, pr):
     """## 현재 웹 페이지에 존재하는 페이지의 수 추출"""
     page_total_count = len(browser.find_elements_by_xpath(
         './/div[@class="api_sc_page_wrap"]/div[@class="sc_page"]/div[@class="sc_page_inner"]/a[@role="button" and @class="btn"]'))
-    time.sleep(SLEEP_SEC)
+    time.sleep(1)
     
     news_data_list = []
-    for n in range(page_total_count):
-        """## 해당 페이지 버튼 클릭"""
-        page_button = browser.find_elements_by_xpath(
-        './/div[@class="api_sc_page_wrap"]/div[@class="sc_page"]/div[@class="sc_page_inner"]/a[@role="button" and @class="btn"]')[n]
-        page_button.click()
-        time.sleep(SLEEP_SEC)
-        
-        cur_url = browser.current_url;
-        cur_news_data_list = cur_page_crawling(cur_url, pr)
-        news_data_list.extend(cur_news_data_list)
-        
-    return news_data_list
+    try:
+        for n in range(page_total_count):
+            """## 해당 페이지 버튼 클릭"""
+            page_button = browser.find_elements_by_xpath(
+            './/div[@class="api_sc_page_wrap"]/div[@class="sc_page"]/div[@class="sc_page_inner"]/a[@role="button" and @class="btn"]')[n]
+            page_button.click()
+            time.sleep(1)
+            
+            cur_url = browser.current_url;
+            cur_news_data_list = cur_page_crawling(cur_url, pr)
+            news_data_list.extend(cur_news_data_list)
+    
+    finally: return news_data_list
 
 def make_big_news_data_set(browser, start, end, raw_data):
     pbar = tqdm(total=len(PRESS_LIST))
@@ -325,10 +336,9 @@ def make_mini_batch_data_set(browser, df, raw_data):
         for n in range(4):
             index += 1
             
-            if(index < list_size):
+            if(index >= list_size):
                 break
             day_diff = (pre_date - date_list[index]).days
-            
             """## 다음 날짜 데이터가 하루단위로 연속적이라면"""
             if day_diff == 1:
                 pre_date = date_list[index]
@@ -338,10 +348,10 @@ def make_mini_batch_data_set(browser, df, raw_data):
                     index += 1
             else:
                 break
-            
+        mini_batch_list.reverse()
         make_big_news_data_set(browser, mini_batch_list[0], mini_batch_list[-1], raw_data) 
   
-df = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOCK_DATA_FILE_PATH))[1728 : 3455]
+df = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOCK_DATA_FILE_PATH))[1727 : 3455] 
 
 """## 목표 파일이 존재하면 불러오고 없다면 새로 만듬"""
 try:
@@ -353,9 +363,9 @@ print('본문 크롤링에 필요한 함수를 로딩하고 있습니다...\n' +
 
 """## 크롬 드라이버 옵션 설정"""
 chrome_options = webdriver.ChromeOptions()
-# chrome_options.add_argument('headless')
-# chrome_options.add_argument("--disable-gpu")
-# chrome_options.add_argument("lang=ko_KR")
+chrome_options.add_argument('headless')
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("lang=ko_KR")
 chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
 chrome_options.add_argument(
