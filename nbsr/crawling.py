@@ -9,6 +9,7 @@ from tqdm import tqdm
 from datetime import date
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
 DATA_DIR = './nbsr'
 DATA_IN_DIR = './nbsr/data/in'
@@ -265,10 +266,8 @@ def cur_page_crawling(url, press):
         news_title = tit.get('title')
         news_section = news_section_crawling(news_url, press_index)
         
-        print(news_title)
-        
         if news_section:
-            news_data = {'date': news_date, 'url': news_url, 'press': news_press,  'title': news_title, 'section': news_section}
+            news_data = {'date': news_date, 'url': news_url, 'press': news_press,  'title': news_title, 'section': ILLEGAL_CHARACTERS_RE.sub(r'',news_section)}
             cur_news_data_list.append(news_data)
         
     return cur_news_data_list
@@ -294,12 +293,19 @@ def set_news_collection_crawling(browser, pr):
     
     finally: return news_data_list
 
-def make_big_news_data_set(browser, start, end, raw_data):
+def make_big_news_data_set(browser, start, end):
+    """## 목표 파일이 존재하면 불러오고 없다면 새로 만듬"""
+    try:
+        raw_data = pd.read_excel('{}/{}'.format(DATA_OUT_DIR, FILE_PATH))
+    except:
+        raw_data = pd.DataFrame(columns=['date', 'url', 'press', 'title', 'section'])
+        
     pbar = tqdm(total=len(PRESS_LIST))
     
     setting_date_options(browser, start.year, start.month, start.day, end.year, end.month, end.day)
 
     for pr in PRESS_LIST:
+        
         setting_press_options(browser, pr)
         news_data_list = set_news_collection_crawling(browser, pr)
 
@@ -321,7 +327,7 @@ def format_date_to_obj(dt):
     year, month, day = dt.split('/');
     return date(int(year), int(month), int(day))
     
-def make_mini_batch_data_set(browser, df, raw_data):
+def make_mini_batch_data_set(browser, df):
     date_list = df['일자'].values.tolist()
     date_list = list(map(format_date_to_obj, date_list))
     index = 0
@@ -349,15 +355,9 @@ def make_mini_batch_data_set(browser, df, raw_data):
             else:
                 break
         mini_batch_list.reverse()
-        make_big_news_data_set(browser, mini_batch_list[0], mini_batch_list[-1], raw_data) 
+        make_big_news_data_set(browser, mini_batch_list[0], mini_batch_list[-1]) 
   
-df = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOCK_DATA_FILE_PATH))[1727 : 3455] 
-
-"""## 목표 파일이 존재하면 불러오고 없다면 새로 만듬"""
-try:
-    raw_data = pd.read_excel('{}/{}'.format(DATA_OUT_DIR, FILE_PATH))
-except:
-    raw_data = pd.DataFrame(columns=['date', 'url', 'press', 'title', 'section'])
+df = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOCK_DATA_FILE_PATH))[1727 : 3455]
     
 print('본문 크롤링에 필요한 함수를 로딩하고 있습니다...\n' + '-' * 100)
 
@@ -383,7 +383,7 @@ browser.get(views_url)
 print('\n크롤링을 시작합니다.')
 time.sleep(SLEEP_SEC)
 
-make_mini_batch_data_set(browser, df, raw_data)
+make_mini_batch_data_set(browser, df)
 time.sleep(SLEEP_SEC)
 
 browser.close()
