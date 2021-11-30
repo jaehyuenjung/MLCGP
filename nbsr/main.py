@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*- 
 import re
-import time
+import csv
 import pickle
 import os.path
+import operator
 
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 
 from tqdm import tqdm
 from konlpy.tag import Kkma
+from wordcloud import WordCloud
+from sklearn.manifold import TSNE
 from hanspell import spell_checker
 from soynlp.word import WordExtractor
 from soynlp.tokenizer import LTokenizer
@@ -24,11 +28,15 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 DATA_DIR = './nbsr';
 DATA_IN_DIR = './nbsr/data/in';
 DATA_OUT_DIR = './nbsr/data/out';
+WORDCLOUD_FILE_PATH = 'wordcloud.png';
+FONT_FILE_PATH = 'font/KOTRA_HOPE.ttf';
 COMBINED_SCORE_FILE_PATH = 'combined_score.json';
-STOP_WORD_DATA_FILE_PATH= 'stop_words/korean_stop_words.csv';
-STOCK_DATA_FILE_PATH = 'stock_ko/samsung_20000101-20210926.csv';
+TF_TOP100_VISUALIZATION_FILE_PATH = 'tf_top100_visualization.png';
 CRAWKLING_DATA_FILE_PATH = 'news_data_collection.xlsx';
-TF_DATA_FILE_PATH = 'tf_data.bin'
+STOP_WORD_DATA_FILE_PATH= 'stop_words/korean_stop_words.csv';
+PRETREATMENTED_CORPUS_FILE_PATH = 'pretreatmented_corpus.csv';
+STOCK_DATA_FILE_PATH = 'stock_ko/samsung_20000101-20210926.csv';
+CHECKED_PRETREATMENTED_CORPUS_FILE_PATH = 'checked_pretreatmented_corpus.csv'
 SEED = 346672;
 
 def format_date_to_int(date):
@@ -40,11 +48,7 @@ def korean_spell_check(corpus):
     sentence_list = kkma.sentences(corpus)
 
     checked_sentence = []
-    
-    r = re.compile(r"[!\"#$%&'()*+,/;<=>?@[\]^`{|}~.]")
-    for sentence in sentence_list:
-        sentence = r.sub('', sentence)
-        
+    for sentence in sentence_list:       
         if len(sentence) < 500:
             spelled_sent = spell_checker.check(sentence)
             checked_sentence.append(spelled_sent.checked)
@@ -135,33 +139,45 @@ def make_combined_scores(corpus, file_name):
         
         return combined_scores
     
-def make_tf_data(file_name):
-    tfidfv = None
+def make_pretreatmented_corpus(file_name):
+    pretreatmented_corpus = None
     if os.path.isfile(file_name):
-        with open(file_name, "rb") as fr:
-            tfidfv = pickle.load(fr)
-        return tfidfv
+        with open('{}/{}'.format(DATA_OUT_DIR, PRETREATMENTED_CORPUS_FILE_PATH), 'r', encoding='utf-8') as fr: 
+            rdr = csv.reader(fr) 
+            for row in rdr:
+                pretreatmented_corpus = row
+        return pretreatmented_corpus
     else:
+        print('tf-idf 파일이 없어 새로 만드는 작업을 시작합니다.\n')
+        print('크롤링한 데이터 불러오는 중...\n')
         df = pd.read_excel('{}/{}'.format(DATA_OUT_DIR, CRAWKLING_DATA_FILE_PATH));
 
         corpus = df.dropna()['section'].to_list()
+        print('크롤링한 데이터를 불러왔습니다.\n')
 
-        # """## 문장 맞춤법 체크"""
-        # pbar = tqdm(total=len(corpus))
-        # for cp in corpus:
-        #     cp = korean_spell_check(cp)
-        #     pbar.update(1)
-        #     time.sleep(0.3)
+        """## 문장 맞춤법 체크 및 특수 문자 제거"""
+        print('-' * 100 + '\n맞춤법 및 특수 문자 제거를 시작합니다.\n')
+        pbar = tqdm(total=len(corpus))
+        checked_corpus = []
+        for cp in corpus:
+            new_cp = re.sub(r"[^ㄱ-ㅎㅏ-ㅣ가-힣0-9a-zA-Z. ]",'', cp)
+            # new_cp = korean_spell_check(new_cp)
+            checked_corpus.append(new_cp)
+            pbar.update(1)
             
-        # pbar.close()
-
+        pbar.close()
+        corpus = checked_corpus
+        print('\n맞춤법 및 특수 문자 제거를 완료하였습니다.\n' + '-' * 100)
+        
         """## 종합 점수 통계치 생성"""
         combined_scores = make_combined_scores(corpus, '{}/{}'.format(DATA_OUT_DIR, COMBINED_SCORE_FILE_PATH))
 
         """## L parts(명사/동사/형용사/부사) 나머지 부분이 R parts로 구분하는 Tokenizer"""
         tokenizer = LTokenizer(scores=combined_scores)
 
+        print('\n' + '-' * 100 + '\n토큰 처리를 시작합니다.\n')
         pretreatmented_corpus = []
+        pbar = tqdm(total=len(corpus))
         for cp in corpus:
             lr_list = tokenizer.tokenize(cp, flatten=False)
             
@@ -169,15 +185,18 @@ def make_tf_data(file_name):
             for l, r in lr_list:
                 l_list.append(l)
             pretreatmented_corpus.append(' '.join(l_list))
-
-        df = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOP_WORD_DATA_FILE_PATH));
-
-        tfidfv = TfidfVectorizer(stop_words=df['용어'].to_list()).fit(pretreatmented_corpus)
-
-        with open(file_name, "wb") as fw:
-                pickle.dump(tfidfv, fw)
-                
-        return tfidfv
+            
+            pbar.update(1)
+            
+        pbar.close()
+        print('\n토큰 처리를 완료하였습니다.\n' + '-' * 100)
+        
+        """## 전처리된 corpus 저장"""
+        with open('{}/{}'.format(DATA_OUT_DIR, PRETREATMENTED_CORPUS_FILE_PATH), 'w', newline='', encoding='utf-8') as fw: 
+            writer = csv.writer(fw) 
+            writer.writerow(pretreatmented_corpus)
+            
+        return pretreatmented_corpus
 
 # def fit_test_regression(model, train_input, train_target, valid_input, valid_target, test_input, test_target):
 #     model.compile(loss="mae", optimizer="adam")
@@ -195,14 +214,87 @@ def make_tf_data(file_name):
 #     plt.show()
 
 """## 맷 플롯 한글 깨짐 방지 설정"""
-font_path = "C:/Windows/Fonts/malgun.ttf";
+font_path = '{}/{}'.format(DATA_DIR, FONT_FILE_PATH)
 font = font_manager.FontProperties(fname= font_path).get_name();
 rc('font', family=font);
 
-# """---------- ★★★ 전처리 ★★★ ----------"""
+"""---------- ★★★ 전처리 ★★★ ----------"""
 # # Todo: 기본 전처리, 형태소 분석, TF-IDF
 
-make_tf_data('{}/{}'.format(DATA_OUT_DIR, TF_DATA_FILE_PATH))
+pretreatmented_corpus = make_pretreatmented_corpus('{}/{}'.format(DATA_OUT_DIR, PRETREATMENTED_CORPUS_FILE_PATH))
+
+stop_words = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOP_WORD_DATA_FILE_PATH));
+
+"""## TF-IDF 분포도 확인"""
+# tfidf = TfidfVectorizer(max_df = 0.3, min_df = 300, sublinear_tf=True, stop_words=stop_words['용어'].to_list()).fit(pretreatmented_corpus)
+# tfidf_dict = {w: idf for w, idf in zip(tfidf.get_feature_names(), tfidf.idf_)}
+# tfidf_dict = sorted(tfidf_dict.items(), key=operator.itemgetter(1))
+
+# plt.figure(figsize=(12, 8))
+# plt.hist(tfidf.idf_)
+# plt.yscale('log', nonposy='clip')
+# plt.xlabel('Number of scores')
+# plt.ylabel('Number of Words')
+# plt.show()
+    
+# print(tfidf_dict[:100])
+
+
+"""## TF-IDF score Top 100 단어 시각화"""
+# tfidf = TfidfVectorizer(max_features = 100,  max_df = 0.3, min_df = 300, sublinear_tf=True, stop_words=stop_words['용어'].to_list()).fit(pretreatmented_corpus)
+    
+# tfidf_dict = tfidf.get_feature_names()
+# A_tfidf_sp = tfidf.transform(pretreatmented_corpus) 
+# data_array = A_tfidf_sp.toarray()
+
+# tsne = TSNE(n_components=2, n_iter=10000, verbose=1)
+# Z = tsne.fit_transform(data_array.T)
+
+# fontprop = fm.FontProperties(fname=font_path, size=16)
+# plt.figure(figsize=(20,12))
+# plt.scatter(Z[:,0], Z[:,1])
+# for i in range(len(tfidf_dict)):
+#     plt.annotate(s = tfidf_dict[i].encode("utf8").decode("utf8"), xy = (Z[i,0], Z[i,1]), fontProperties = fontprop)
+
+# plt.draw()
+# plt.savefig('{}/{}'.format(DATA_OUT_DIR, TF_TOP100_VISUALIZATION_FILE_PATH))
+
+"""## 전처리된 corpus를 워드 클라우드로 시각화"""
+# wordcloud = WordCloud(font_path).generate(' '.join(pretreatmented_corpus))
+        
+# plt.imshow(wordcloud, interpolation='bilinear')
+# plt.axis('off')
+# plt.savefig('{}/{}'.format(DATA_OUT_DIR, WORDCLOUD_FILE_PATH))
+
+tfidf = TfidfVectorizer(max_df = 0.3, min_df = 300, sublinear_tf=True, stop_words=stop_words['용어'].to_list()).fit(pretreatmented_corpus)
+tfidf_dict = {w: idf for w, idf in zip(tfidf.get_feature_names(), tfidf.idf_)}
+tfidf_dict = sorted(tfidf_dict.items(), key=operator.itemgetter(1))
+tfidt_list = [w for w, idf in tfidf_dict]
+
+checked_corpus = []
+print('-' * 100 + "최종 전처리를 수행 중 입니다.")
+pbar = tqdm(total=len(pretreatmented_corpus))
+for cp in pretreatmented_corpus:
+    result = []
+    for c in cp.split(' '):
+        check = False
+        for w in tfidt_list:
+            if c == w:
+                check = True
+                break
+        if check:
+            result.append(c)            
+    checked_corpus.append(' '.join(result))
+    pbar.update(1)
+    
+pbar.close()
+pretreatmented_corpus = checked_corpus
+print("\n최종 전처리를 완료하였습니다.\n" + '-' * 100)
+
+with open('{}/{}'.format(DATA_OUT_DIR, CHECKED_PRETREATMENTED_CORPUS_FILE_PATH), 'w', newline='', encoding='utf-8') as fw: 
+        writer = csv.writer(fw) 
+        writer.writerow(pretreatmented_corpus)
+
 
 """---------- ★★★ Word2Vec 모델 학습 및 생성 ★★★ ----------"""
 # Todo: 전처리 과정을 통해 얻은 여러 문장을 Word2Vec 모델을 만들어 학습
