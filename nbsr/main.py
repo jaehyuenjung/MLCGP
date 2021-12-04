@@ -23,14 +23,20 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 from hanspell import spell_checker
 from soynlp.word import WordExtractor
+from sklearn.linear_model import Ridge
 from soynlp.tokenizer import LTokenizer
 from matplotlib import font_manager, rc
 from soynlp.noun import LRNounExtractor_v2
+from tensorflow.keras.models import Sequential
+from sklearn.metrics import mean_absolute_error
 from gensim.models import Word2Vec, KeyedVectors
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.feature_extraction.text import TfidfVectorizer
+from tensorflow.keras.layers import Conv1D, Dense, MaxPooling1D, AveragePooling1D, Flatten, Dropout, SimpleRNN, LSTM, GRU
 
 DATA_DIR = './nbsr';
 FONT_DIR = './nbsr/font';
@@ -253,21 +259,27 @@ def make_checked_preprocessing_corpus(tfidf, preprocessing_corpus):
         print('\n저장을 완료하였습니다.\n')
         
         return raw_data.dropna()
+    
+def cal_mae(model, test_input, test_target):
+    test_prediction = model.predict(test_input);
 
-# def fit_test_regression(model, train_input, train_target, valid_input, valid_target, test_input, test_target):
-#     model.compile(loss="mae", optimizer="adam")
+    mae = mean_absolute_error(test_target, test_prediction);
+    print(mae);
 
-#     history = model.fit(train_input, train_target, epochs=1000, validation_data=(valid_input, valid_target),
-#     callbacks=[early_stopping_cb])
+def fit_test_regression(model, train_input, train_target, valid_input, valid_target, test_input, test_target):
+    model.compile(loss="mae", optimizer="adam")
 
-#     train_score = model.evaluate(train_input, train_target)
-#     test_score = model.evaluate(test_input, test_target)
-#     print(train_score)
-#     print(test_score)
+    history = model.fit(train_input, train_target, epochs=1000, validation_data=(valid_input, valid_target),
+    callbacks=[early_stopping_cb])
 
-#     pd.DataFrame(history.history).plot()
-#     plt.grid(True)
-#     plt.show()
+    train_score = model.evaluate(train_input, train_target)
+    test_score = model.evaluate(test_input, test_target)
+    print(train_score)
+    print(test_score)
+
+    pd.DataFrame(history.history).plot()
+    plt.grid(True)
+    plt.show()
 
 """## 맷 플롯 한글 깨짐 방지 설정"""
 font_path = '{}/{}'.format(DATA_DIR, FONT_FILE_PATH)
@@ -439,54 +451,112 @@ df_stock = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOCK_DATA_FILE_PATH));
 df_score = pd.read_excel('{}/{}'.format(DATA_OUT_DIR, SCORE_CORPUS_FILE_PATH))
 
 df = pd.merge(df_stock, df_score, how='left',on='일자')
-df = df.fillna(0.0)
+# df = df.fillna(0.0)
 # print(df.info());
 
-# stock_input = df.drop(['시가총액'], axis=1 ,inplace=False);
-# stock_target = df['시가총액'] / 1000000000000;
+# print(df.isnull().sum().sum())
 
-# """## 예측을 위해서 input 값의 첫번째 데이터 삭제"""
-# stock_input.drop(0, axis=0, inplace=True);
+sample_df = df[df['여론점수'].isnull()].drop(['여론점수'], axis=1, inplace=False)
 
-# """## 마찬가지로 예측을 위해서 target 값 인덱스를 한칸씩 이동"""
-# stock_target = [stock_target[i] for i in range(len(stock_target)-1)];
+score_input = df.dropna().drop(['여론점수'], axis=1, inplace=False)
+score_target = df.dropna()['여론점수']
 
-# """## str 형태인 날짜 값을 숫자형태로 변환"""
-# stock_input['일자'] =  stock_input['일자'].map(format_date_to_int);
+score_input.reset_index(drop=True, inplace=True)
+score_target.reset_index(drop=True, inplace=True)
 
-# stock_input = np.array(stock_input)
-# stock_target = np.array(stock_target)
+score_input['일자'] =  score_input['일자'].map(format_date_to_int);
+sample_df['일자'] =  sample_df['일자'].map(format_date_to_int);
 
-# """## 훈련 데이터와 테스트 데이터를 25% 비율로 나눔"""
-# train_input, test_input, train_target, test_target = train_test_split(stock_input, stock_target, random_state=SEED);
+score_input = np.array(score_input)
+score_target = np.array(score_target)
+sample_input = np.array(sample_df)
 
-# """## 훈련 데이터와 검증 데이터를 20% 비율로 나눔"""
-# train_input, valid_input, train_target, valid_target = train_test_split(
-#     train_input, train_target, random_state=SEED, test_size=0.2)
+# # plt.hist(score_target)
+# # plt.show()
 
-# """## 다음날 예측 값 설정"""
-# sample_input = df.iloc[0].drop('시가총액', axis= 0, inplace=False)
-# sample_input['일자'] = 20210927;
+"""## 훈련 데이터와 테스트 데이터를 25% 비율로 나눔"""
+train_input, test_input, train_target, test_target = train_test_split(score_input, score_target, random_state=SEED);
 
-# sample_input = np.array(sample_input, dtype='int64')
-# sample_input = sample_input.reshape(1,-1)
+"""## 특성 스케일링"""
+scaler = StandardScaler()
+train_scaled = scaler.fit_transform(train_input)
+test_scaled = scaler.transform(test_input)
+sample_scaled = scaler.transform(sample_input)
 
-# """## 특성 스케일링"""
-# scaler = StandardScaler()
-# train_scaled = scaler.fit_transform(train_input)
-# valid_scaled = scaler.transform(valid_input)
-# test_scaled = scaler.transform(test_input)
-# sample_scaled = scaler.transform(sample_input)
+"""## 선형 회귀 모델"""
+lr = LinearRegression();
+lr.fit(train_scaled, train_target);
+# cal_mae(lr, train_scaled, train_target)
+# cal_mae(lr, test_scaled, test_target)
 
-# """## 딥러닝 학습 전 기본적인 셋팅"""
-# tf.random.set_seed(SEED)
-# early_stopping_cb = EarlyStopping(patience=10, restore_best_weights=True)
+sample_df['여론점수'] = lr.predict(sample_scaled)
 
-# """## 입력 데이터를 2차원 형식으로 변형"""
-# train_scaled = train_scaled.reshape(train_scaled.shape[0], train_scaled.shape[1], 1)
-# valid_scaled = valid_scaled.reshape(valid_scaled.shape[0], valid_scaled.shape[1], 1)
-# test_scaled = test_scaled.reshape(test_scaled.shape[0], test_scaled.shape[1], 1)
+"""## 최종 모델 생성"""
+stock_input = df.drop(['시가총액'], axis=1 ,inplace=False);
+stock_target = df['시가총액'] / 1000000000000;
 
+stock_input.reset_index(drop=True, inplace=True)
+stock_target.reset_index(drop=True, inplace=True)
+
+"""## str 형태인 날짜 값을 숫자형태로 변환"""
+stock_input['일자'] =  stock_input['일자'].map(format_date_to_int);
+
+"""## 예측된 여론 점수를 통합"""
+stock_input['여론점수'].fillna(sample_df['여론점수'], inplace=True)
+
+"""## 예측을 위해서 input 값의 첫번째 데이터 삭제"""
+stock_input.drop(0, axis=0, inplace=True);
+
+"""## 마찬가지로 예측을 위해서 target 값 인덱스를 한칸씩 이동"""
+stock_target = [stock_target[i] for i in range(len(stock_target)-1)];
+
+stock_input = np.array(stock_input)
+stock_target = np.array(stock_target)
+
+"""## 훈련 데이터와 테스트 데이터를 25% 비율로 나눔"""
+train_input, test_input, train_target, test_target = train_test_split(stock_input, stock_target, random_state=SEED);
+
+"""## 훈련 데이터와 검증 데이터를 20% 비율로 나눔"""
+train_input, valid_input, train_target, valid_target = train_test_split(
+    train_input, train_target, random_state=SEED, test_size=0.2)
+
+"""## 다음날 예측 값 설정"""
+sample_input = df.iloc[0].drop('시가총액', axis= 0, inplace=False)
+sample_input['일자'] = 20210927;
+
+sample_input = np.array(sample_input, dtype='int64')
+sample_input = sample_input.reshape(1,-1)
+
+"""## 특성 스케일링"""
+scaler = StandardScaler()
+train_scaled = scaler.fit_transform(train_input)
+valid_scaled = scaler.transform(valid_input)
+test_scaled = scaler.transform(test_input)
+sample_scaled = scaler.transform(sample_input)
+
+"""## 입력 데이터를 2차원 형식으로 변형"""
+train_scaled = train_scaled.reshape(train_scaled.shape[0], train_scaled.shape[1], 1)
+valid_scaled = valid_scaled.reshape(valid_scaled.shape[0], valid_scaled.shape[1], 1)
+test_scaled = test_scaled.reshape(test_scaled.shape[0], test_scaled.shape[1], 1)
+sample_scaled = sample_scaled.reshape(1, -1, 1)
+
+"""## 딥러닝 학습 전 기본적인 셋팅"""
+tf.random.set_seed(SEED)
+early_stopping_cb = EarlyStopping(patience=10, restore_best_weights=True)
+
+"""## RNN 모델 part 1"""
+rnn = Sequential([
+    Conv1D(filters=10, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[11,1]),
+    GRU(units=50,  activation='relu', return_sequences=True),
+    GRU(units=100,  activation='relu', return_sequences=False),
+    Dense(100),
+    Dense(10),
+    Dense(1)
+])
+
+fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
+
+print(rnn.predict(sample_scaled))
 
 
 
