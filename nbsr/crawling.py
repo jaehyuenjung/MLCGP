@@ -1,4 +1,3 @@
-import os
 import re
 import time
 
@@ -357,7 +356,7 @@ def make_mini_batch_data_set(browser, df):
         mini_batch_list.reverse()
         make_big_news_data_set(browser, mini_batch_list[0], mini_batch_list[-1]) 
   
-df = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOCK_DATA_FILE_PATH))[1727 : 3455]
+df = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOCK_DATA_FILE_PATH))
     
 print('본문 크롤링에 필요한 함수를 로딩하고 있습니다...\n' + '-' * 100)
 

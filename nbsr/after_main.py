@@ -3,6 +3,7 @@ import enum
 import re
 import csv
 import shutil
+import random
 import pickle
 import gensim
 import pathlib
@@ -23,9 +24,7 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 from hanspell import spell_checker
 from soynlp.word import WordExtractor
-from sklearn.linear_model import Ridge
 from soynlp.tokenizer import LTokenizer
-from matplotlib import font_manager, rc
 from soynlp.noun import LRNounExtractor_v2
 from tensorflow.keras.models import Sequential
 from sklearn.metrics import mean_absolute_error
@@ -34,9 +33,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.preprocessing import PolynomialFeatures
 from sklearn.feature_extraction.text import TfidfVectorizer
-from tensorflow.keras.layers import Conv1D, Dense, MaxPooling1D, AveragePooling1D, Flatten, Dropout, SimpleRNN, LSTM, GRU
+from tensorflow.keras.layers import Conv1D, Dense, MaxPooling1D, MaxPooling2D, AveragePooling1D, Flatten, Dropout, SimpleRNN, LSTM, GRU
 
 DATA_DIR = './nbsr';
 FONT_DIR = './nbsr/font';
@@ -44,7 +42,7 @@ DATA_IN_DIR = './nbsr/data/in';
 DATA_OUT_DIR = './nbsr/data/out';
 WORDCLOUD_FILE_PATH = 'wordcloud.png';
 FONT_FILE_PATH = 'font/KOTRA_HOPE.ttf';
-SCORE_CORPUS_FILE_PATH = 'score_corpus.xlsx';
+SCORE_CORPUS_FILE_PATH = 'after_score_corpus.xlsx';
 COMBINED_SCORE_FILE_PATH = 'combined_score.json';
 CRAWKLING_DATA_FILE_PATH = 'news_data_collection.xlsx';
 PREPROCESSING_CORPUS_FILE_PATH = 'preprocessing_corpus.xlsx';
@@ -52,6 +50,8 @@ STOCK_DATA_FILE_PATH = 'stock_ko/samsung_20000101-20210926.csv';
 TF_TOP100_VISUALIZATION_FILE_PATH = 'tf_top100_visualization.png';
 CHECKED_PREPROCESSING_CORPUS_FILE_PATH = 'checked_preprocessing_corpus.xlsx'
 SEED = 346672;
+
+LABEL_LIST = ['증가', '유지', '감소']
 
 def format_date_to_int(date):
     year, month, day = date.split('/');
@@ -76,7 +76,7 @@ def korean_spell_check(corpus):
             pre_index = 0
             cur_index = 0
             while cur_index < word_list_size:
-                if total_size + len(word_list[cur_index]):
+                if total_size + len(word_list[cur_index]) >= 500:
                     mini_sent = ' '.join(word_list[pre_index : cur_index])
                     spelled_sent = spell_checker.check(mini_sent)
                     checked_word_list.append(spelled_sent.checked)
@@ -128,14 +128,6 @@ def make_combined_scores(corpus, file_name):
         """## WordExtractor 모델에서 명사 추출의 정확성과 합성명사 인식 능력 높인 모델"""
         noun_extractor = LRNounExtractor_v2(verbose=True, extract_compound=True)
         nouns = noun_extractor.train_extract(corpus)
-        
-        # top100 = sorted(nouns.items(), 
-        #     key=lambda x:-x[1].frequency)[:100]
-
-        # for i, (word, score) in enumerate(top100):
-        #     if i % 5 == 0:
-        #         print()
-        #     print('%6s (%.2f)' % (word, score.score), end='')
 
         noun_scores = {noun:score.score for noun, score in nouns.items()}
 
@@ -288,23 +280,11 @@ font = fm.FontProperties(fname=font_path);
 """## 그래프에서 마이너스 폰트 깨지는 문제에 대한 대처"""
 matplotlib.rcParams['axes.unicode_minus'] = False
 
-# check = False
-# ttf_path = os.path.join(pathlib.Path(matplotlib.matplotlib_fname()).parent, 'fonts\\ttf')
-# ttf_list = os.listdir(ttf_path)
-# for ttf in ttf_list:
-#     if ttf.find(font) != -1:
-#         check = True
-#         break
-
-# if not check:
-#     shutil.copy(font_path, ttf_path)
-#     fm.FontManager().addfont(font_path)
-
-"""---------- ★★★ 전처리 ★★★ ----------"""
+"""---------- ★★★ 텍스트 전처리 ★★★ ----------"""
 # # Todo: 기본 전처리, 형태소 분석, TF-IDF
 
-# raw_data = make_preprocessing_corpus()
-# preprocessing_corpus = raw_data['section'].to_list()
+raw_data = make_preprocessing_corpus()
+preprocessing_corpus = raw_data['section'].to_list()
 
 """## 전처리된 corpus를 워드 클라우드로 시각화"""
 # wordcloud = WordCloud(font_path).generate(' '.join(preprocessing_corpus))
@@ -312,7 +292,6 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 # plt.imshow(wordcloud, interpolation='bilinear')
 # plt.axis('off')
 # plt.savefig('{}/{}'.format(DATA_OUT_DIR, WORDCLOUD_FILE_PATH))
-
 
 """## IDF 분포도 확인"""
 # tfidf = TfidfVectorizer(max_df = 0.2, min_df = 0.011, sublinear_tf=True).fit(preprocessing_corpus)
@@ -354,7 +333,7 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 # raw_data = make_checked_preprocessing_corpus(tfidf, preprocessing_corpus)
 # checked_preprocessing_corpus = raw_data['section'].to_list()
 
-"""## 최종 전처리된 corpus를 워드 클라우드로 시각화"""
+# """## 최종 전처리된 corpus를 워드 클라우드로 시각화"""
 # wordcloud = WordCloud(font_path).generate(' '.join(checked_preprocessing_corpus))
         
 # plt.imshow(wordcloud, interpolation='bilinear')
@@ -381,10 +360,7 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 
 # w2v = Word2Vec.load('{}/{}'.format(DATA_DIR, 'model/ko_new.bin'))  
 
-"""---------- ★★★ Clustering(K means) 모델 학습 및 생성 ★★★ ----------"""
-# Todo: Word2Vec을 통해 문장을 하나로 압축하고 압축된 것을 통해 K mean을 이용하여 감정을 분류하고 그 결과로 감성사전을 구축
-
-# label_list = ['증가', '유지', '감소']
+"""---------- ★★★ Word2Vec 모델을 이용한 가중치 데이터 생성 ★★★ ----------"""
 
 # input_data = []
 # print('-' * 100 + "\n ['증가', '유지', '감소'] 기준으로 유사도 계산 중...")
@@ -392,7 +368,7 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 # for sentence in sentences:
 #     result = [0,0,0]
 #     for word in sentence:
-#         for i,l in enumerate(label_list):
+#         for i,l in enumerate(LABEL_LIST):
 #             result[i] += w2v.wv.similarity(l, word)
 
 #     word_size = len(sentence)
@@ -403,41 +379,36 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 # pbar.close()
 # print('\n계산을 완료하였습니다.\n' + '-' * 100)
 
-# scaler = StandardScaler()
-# input_data = np.array(input_data)
-# input_scaler =  scaler.fit_transform(input_data)
-
-# Kmean = KMeans(n_clusters=3)
-# Kmean.fit(input_scaler)
-
-# classification_predict = Kmean.predict(input_scaler)
-
 """---------- ★★★ '여론 점수' 특성 생성 ★★★ ----------"""
 # Todo: 감성사전 구축한 것을 통해 네이버 뉴스 기사를 바탕으로 여론 점수 구하기
 
-# new_data = pd.DataFrame(columns=['일자', '여론점수'])
+# new_data = pd.DataFrame(columns=['일자', '증가', '유지', '감소'])
 # date_list = set(raw_data['date'].to_list())
 
-# score_list = np.zeros(shape = len(date_list))
+# score_list = np.zeros(shape = (len(date_list), 3))
 # score_count = np.zeros(shape = len(date_list))
 
 # print('-' * 100 + "\n 여론 점수 계산 중...")
-# pbar = tqdm(total=len(classification_predict))
-# for date, score in zip(raw_data['date'].to_list(), classification_predict):
+# pbar = tqdm(total=len(input_data))
+# for date, score in zip(raw_data['date'].to_list(), input_data):
 #     for i, d in enumerate(date_list):
 #         if d == date:
-#             score_list[i]+= score
+#             for j in range(len(LABEL_LIST)):
+#                 score_list[i][j]+= score[j]
 #             score_count[i]+=1
 #             break
 #     pbar.update(1)
 # pbar.close()
 # print("\n여론 점수 계산을 완료하였습니다.\n" + '-' * 100)
 
-# score_list /= score_count
+# score_list = [[score[j]/ score_count[i] for j in range(len(LABEL_LIST))] for i,score in enumerate(score_list)]
 # score_list = list(score_list)
 
 # for date, score in zip(date_list, score_list):
-#     new_data = new_data.append({'일자': date.replace('.', '/', 2).replace('.', ''), '여론점수': score}, ignore_index=True)
+#     data = {'일자': date.replace('.', '/', 2).replace('.', '')}
+#     for i in range(len(LABEL_LIST)):
+#         data[LABEL_LIST[i]] = score[i]
+#     new_data = new_data.append(data, ignore_index=True)
     
 # """## 여론 점수를 엑셀 형식으로 저장"""
 # print('\n데이터프레임 형식으로 저장 중')
@@ -451,15 +422,12 @@ df_stock = pd.read_csv('{}/{}'.format(DATA_IN_DIR, STOCK_DATA_FILE_PATH));
 df_score = pd.read_excel('{}/{}'.format(DATA_OUT_DIR, SCORE_CORPUS_FILE_PATH))
 
 df = pd.merge(df_stock, df_score, how='left',on='일자')
-# df = df.fillna(0.0)
 # print(df.info());
 
-# print(df.isnull().sum().sum())
+sample_df = df[df['증가'].isnull()].drop(LABEL_LIST, axis=1, inplace=False)
 
-sample_df = df[df['여론점수'].isnull()].drop(['여론점수'], axis=1, inplace=False)
-
-score_input = df.dropna().drop(['여론점수'], axis=1, inplace=False)
-score_target = df.dropna()['여론점수']
+score_input = df.dropna().drop(LABEL_LIST, axis=1, inplace=False)
+score_target = df.dropna()[list(LABEL_LIST)]
 
 score_input.reset_index(drop=True, inplace=True)
 score_target.reset_index(drop=True, inplace=True)
@@ -471,9 +439,6 @@ score_input = np.array(score_input)
 score_target = np.array(score_target)
 sample_input = np.array(sample_df)
 
-# # plt.hist(score_target)
-# # plt.show()
-
 """## 훈련 데이터와 테스트 데이터를 25% 비율로 나눔"""
 train_input, test_input, train_target, test_target = train_test_split(score_input, score_target, random_state=SEED);
 
@@ -483,13 +448,19 @@ train_scaled = scaler.fit_transform(train_input)
 test_scaled = scaler.transform(test_input)
 sample_scaled = scaler.transform(sample_input)
 
-"""## 선형 회귀 모델"""
-lr = LinearRegression();
-lr.fit(train_scaled, train_target);
-# cal_mae(lr, train_scaled, train_target)
-# cal_mae(lr, test_scaled, test_target)
+"""## 딥러닝 학습 전 기본적인 셋팅"""
+os.environ['PYTHONHASHSEED'] = str(SEED) 
+random.seed(SEED) 
+np.random.seed(SEED) 
+tf.random.set_seed(SEED) 
+early_stopping_cb = EarlyStopping(patience=10, restore_best_weights=True)
 
-sample_df['여론점수'] = lr.predict(sample_scaled)
+"""## 선형 회귀 모델"""
+for i in range(len(LABEL_LIST)):
+    lr = LinearRegression();
+    lr.fit(train_scaled, train_target[:,i]);
+
+    sample_df[LABEL_LIST[i]] = lr.predict(sample_scaled)
 
 """## 최종 모델 생성"""
 stock_input = df.drop(['시가총액'], axis=1 ,inplace=False);
@@ -502,7 +473,8 @@ stock_target.reset_index(drop=True, inplace=True)
 stock_input['일자'] =  stock_input['일자'].map(format_date_to_int);
 
 """## 예측된 여론 점수를 통합"""
-stock_input['여론점수'].fillna(sample_df['여론점수'], inplace=True)
+for label in LABEL_LIST:
+    stock_input[label].fillna(sample_df[label], inplace=True)
 
 """## 예측을 위해서 input 값의 첫번째 데이터 삭제"""
 stock_input.drop(0, axis=0, inplace=True);
@@ -540,23 +512,43 @@ valid_scaled = valid_scaled.reshape(valid_scaled.shape[0], valid_scaled.shape[1]
 test_scaled = test_scaled.reshape(test_scaled.shape[0], test_scaled.shape[1], 1)
 sample_scaled = sample_scaled.reshape(1, -1, 1)
 
-"""## 딥러닝 학습 전 기본적인 셋팅"""
-tf.random.set_seed(SEED)
-early_stopping_cb = EarlyStopping(patience=10, restore_best_weights=True)
-
 """## RNN 모델 part 1"""
-rnn = Sequential([
-    Conv1D(filters=10, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[11,1]),
-    GRU(units=50,  activation='relu', return_sequences=True),
-    GRU(units=100,  activation='relu', return_sequences=False),
-    Dense(100),
-    Dense(10),
-    Dense(1)
-])
+# rnn = Sequential([
+#     Conv1D(filters=10, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[13,1]),
+#     GRU(units=50,  activation='relu', return_sequences=True),
+#     GRU(units=100,  activation='relu', return_sequences=False),
+#     Dense(100),
+#     Dense(10),
+#     Dense(1)
+# ])
 
-fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
+# fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
 
-print(rnn.predict(sample_scaled))
+# print(rnn.predict(sample_scaled))
 
+"""## RNN 모델 part 2"""
+# rnn = Sequential([
+#     Conv1D(filters=32, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[13,1]),
+#     LSTM(units=64,  activation='relu', return_sequences=True),
+#     LSTM(units=128,  activation='relu', return_sequences=False),
+#     Dense(16),
+#     Dense(1)
+# ])
 
+# fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
 
+# print(rnn.predict(sample_scaled))
+
+"""## RNN 모델 part 3"""
+# rnn = Sequential([
+#     Conv1D(filters=32, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[13,1]),
+#     LSTM(units=64,  activation='relu', return_sequences=True),
+#     LSTM(units=128,  activation='relu', return_sequences=True),
+#     LSTM(units=32,  activation='relu', return_sequences=False),
+#     Dense(16),
+#     Dense(1)
+# ])
+
+# fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
+
+# print(rnn.predict(sample_scaled))
