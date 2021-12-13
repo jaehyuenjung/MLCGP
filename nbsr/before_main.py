@@ -537,15 +537,29 @@ tf.random.set_seed(SEED)
 early_stopping_cb = EarlyStopping(patience=10, restore_best_weights=True)
 
 """## RNN 모델 part 1"""
-rnn = Sequential([
-    Conv1D(filters=10, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[11,1]),
-    GRU(units=50,  activation='relu', return_sequences=True),
-    GRU(units=100,  activation='relu', return_sequences=False),
-    Dense(100),
-    Dense(10),
-    Dense(1)
-])
+# rnn = Sequential([
+#     Conv1D(filters=10, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[11,1]),
+#     GRU(units=50,  activation='relu', return_sequences=True),
+#     GRU(units=100,  activation='relu', return_sequences=False),
+#     Dense(100),
+#     Dense(10),
+#     Dense(1)
+# ])
 
-fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
+# fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
 
-print(rnn.predict(sample_scaled))
+# print(rnn.predict(sample_scaled))
+
+"""## RNN 모델 part 2"""
+# rnn = Sequential([
+#     Conv1D(filters=22, kernel_size=2, kernel_initializer='he_uniform', padding='same', activation='relu', input_shape=[11,1]),
+#     GRU(units=200,  activation='relu', return_sequences=True),
+#     GRU(units=100,  activation='relu', return_sequences=False),
+#     Dense(200),
+#     Dense(10),
+#     Dense(1)
+# ])
+
+# fit_test_regression(rnn, train_scaled, train_target, valid_scaled, valid_target, test_scaled, test_target)
+
+# print(rnn.predict(sample_scaled))
