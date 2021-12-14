@@ -1,5 +1,4 @@
 nbsr/data/out/news_data_collection.xlsx filter=lfs diff=lfs merge=lfs -text
-nbsr/data/out/pretreatmented_corpus.csv filter=lfs diff=lfs merge=lfs -text
 nbsr/data/out/preprocessing_corpus.xlsx filter=lfs diff=lfs merge=lfs -text
 nbsr/model/ko.bin filter=lfs diff=lfs merge=lfs -text
 nbsr/model/ko_new.bin filter=lfs diff=lfs merge=lfs -text
